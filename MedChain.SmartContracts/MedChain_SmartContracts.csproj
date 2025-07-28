@@ -6,8 +6,4 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\MedChain.Models\MedChain.Models.csproj" />
-  </ItemGroup>
-
 </Project>
