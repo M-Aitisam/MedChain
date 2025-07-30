@@ -11,8 +11,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MedChain_BLL", "MedChain_BL
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MedChain_Models", "MedChain_Models\MedChain_Models.csproj", "{2F00DC91-6CAE-4456-AC7C-63C7B06FEF13}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MedChain_SmartContracts", "MedChain_SmartContracts\MedChain_SmartContracts.csproj", "{CFF92ED9-B41F-4735-ABDE-20CF2DB7E974}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -35,10 +33,6 @@ Global
 		{2F00DC91-6CAE-4456-AC7C-63C7B06FEF13}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{2F00DC91-6CAE-4456-AC7C-63C7B06FEF13}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{2F00DC91-6CAE-4456-AC7C-63C7B06FEF13}.Release|Any CPU.Build.0 = Release|Any CPU
-		{CFF92ED9-B41F-4735-ABDE-20CF2DB7E974}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{CFF92ED9-B41F-4735-ABDE-20CF2DB7E974}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{CFF92ED9-B41F-4735-ABDE-20CF2DB7E974}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{CFF92ED9-B41F-4735-ABDE-20CF2DB7E974}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

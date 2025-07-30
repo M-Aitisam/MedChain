@@ -1,0 +1,78 @@
+﻿@* // MedChain_UI/Pages/Register.razor *@
+@page "/register"
+@using MedChain_BLL.DTOs
+@using MedChain_BLL.Interfaces
+@using MedChain_Models.Enums
+@inject IAuthService authService
+@inject NavigationManager navigationManager
+
+<h3>Register</h3>
+
+<EditForm Model="@registerModel" OnValidSubmit="@HandleRegister">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <div class="form-group">
+        <label for="fullName">Full Name</label>
+        <InputText id="fullName" @bind-Value="registerModel.FullName" class="form-control" />
+        <ValidationMessage For="@(() => registerModel.FullName)" />
+    </div>
+
+    <div class="form-group">
+        <label for="email">Email</label>
+        <InputText id="email" @bind-Value="registerModel.Email" class="form-control" />
+        <ValidationMessage For="@(() => registerModel.Email)" />
+    </div>
+
+    <div class="form-group">
+        <label for="password">Password</label>
+        <InputText id="password" type="password" @bind-Value="registerModel.Password" class="form-control" />
+        <ValidationMessage For="@(() => registerModel.Password)" />
+    </div>
+
+    <div class="form-group">
+        <label for="role">Role</label>
+        <InputSelect id="role" @bind-Value="registerModel.Role" class="form-control">
+            <option value="">Select Role</option>
+            <option value="@UserRoles.Doctor">Doctor</option>
+            <option value="@UserRoles.Patient">Patient</option>
+        </InputSelect>
+        <ValidationMessage For="@(() => registerModel.Role)" />
+    </div>
+
+    <button type="submit" class="btn btn-primary">Register</button>
+</EditForm>
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger">@errorMessage</div>
+}
+
+@if (!string.IsNullOrEmpty(successMessage))
+{
+    <div class="alert alert-success">@successMessage</div>
+}
+
+@code {
+    private RegisterDTO registerModel = new RegisterDTO();
+    private string? errorMessage;
+    private string? successMessage;
+
+    private async Task HandleRegister()
+    {
+        var result = await authService.Register(registerModel);
+
+        if (result.IsSuccess)
+        {
+            successMessage = result.Message + " Redirecting to login...";
+            errorMessage = null;
+            await Task.Delay(2000);
+            navigationManager.NavigateTo("/login");
+        }
+        else
+        {
+            errorMessage = result.Message;
+            successMessage = null;
+        }
+    }
+}

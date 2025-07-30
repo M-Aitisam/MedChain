@@ -1,0 +1,65 @@
+﻿@page "/login"
+@using MedChain_BLL.DTOs
+@using MedChain_Models.Enums
+@using MedChain_BLL.Interfaces
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
+@inject IAuthService authService
+@inject NavigationManager navigationManager
+@inject AuthenticationStateProvider authenticationStateProvider
+@inject ProtectedSessionStorage protectedSessionStore
+
+<EditForm Model="@loginModel" OnValidSubmit="@HandleLogin">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <div class="form-group">
+        <label for="email">Email</label>
+        <InputText id="email" @bind-Value="loginModel.Email" class="form-control" />
+        <ValidationMessage For="@(() => loginModel.Email)" />
+    </div>
+
+    <div class="form-group">
+        <label for="password">Password</label>
+        <InputText id="password" type="password" @bind-Value="loginModel.Password" class="form-control" />
+        <ValidationMessage For="@(() => loginModel.Password)" />
+    </div>
+
+    <button type="submit" class="btn btn-primary">Login</button>
+</EditForm>
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger">@errorMessage</div>
+}
+
+@code {
+    private LoginDTO loginModel = new LoginDTO();
+    private string? errorMessage;
+
+    private async Task HandleLogin()
+    {
+        var result = await authService.Login(loginModel);
+
+        if (result.IsSuccess)
+        {
+            await protectedSessionStore.SetAsync("authToken", result.Token);
+            ((CustomAuthStateProvider)authenticationStateProvider).NotifyUserAuthentication(result.Token);
+
+            // Compare string roles directly
+            var redirectPath = result.Role switch
+            {
+                "Admin" => "/admin",
+                "Doctor" => "/doctor",
+                "Patient" => "/patient",
+                _ => "/"
+            };
+
+            navigationManager.NavigateTo(redirectPath);
+        }
+        else
+        {
+            errorMessage = result.Message;
+        }
+    }
+}

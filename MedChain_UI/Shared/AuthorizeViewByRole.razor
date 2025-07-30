@@ -1,0 +1,33 @@
+﻿@* // MedChain_UI/Shared/AuthorizeViewByRole.razor *@
+@using MedChain_Models.Enums
+@typeparam TRole where TRole : Enum
+
+<AuthorizeView>
+    <Authorized>
+        @if (IsInRole)
+        {
+            @ChildContent
+        }
+    </Authorized>
+    <NotAuthorized>
+        @NotAuthorizedContent
+    </NotAuthorized>
+</AuthorizeView>
+
+@code {
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public RenderFragment? NotAuthorizedContent { get; set; }
+    [Parameter] public TRole? Role { get; set; }
+
+    [CascadingParameter] private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
+
+    private bool IsInRole { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var authState = await AuthenticationStateTask;
+        var user = authState.User;
+
+        IsInRole = user.IsInRole(Role.ToString());
+    }
+}
