@@ -1,45 +1,51 @@
 ﻿using MedChain_Models.Entities;
 using MedChain_Models.Enums;
-using MedChain_DAL.Data;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using MedChain_DAL.Data;
 
-public static class SeedData
+namespace MedChain_UI.Data
 {
-    public static async Task Initialize(IServiceProvider serviceProvider)
+    public class SeedData
     {
-        var context = serviceProvider.GetRequiredService<ApplicationDbContext>();
-        var userManager = serviceProvider.GetRequiredService<UserManager<ApplicationUser>>();
-        var roleManager = serviceProvider.GetRequiredService<RoleManager<IdentityRole>>();
-
-        await context.Database.MigrateAsync();
-
-        // Seed roles if they don't exist
-        foreach (var role in Enum.GetNames(typeof(UserRoles)))
+        public async Task Initialize(IServiceProvider serviceProvider)
         {
-            if (!await roleManager.RoleExistsAsync(role))
+            using var scope = serviceProvider.CreateScope();
+            var services = scope.ServiceProvider;
+
+            var context = services.GetRequiredService<ApplicationDbContext>();
+            var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
+            var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
+
+            await context.Database.MigrateAsync();
+
+            // Seed roles
+            var roles = Enum.GetNames(typeof(UserRoles));
+            foreach (var role in roles)
             {
-                await roleManager.CreateAsync(new IdentityRole(role));
+                if (!await roleManager.RoleExistsAsync(role))
+                {
+                    await roleManager.CreateAsync(new IdentityRole(role));
+                }
             }
-        }
 
-        // Seed admin user if not exists
-        var adminEmail = "admin@medchain.com";
-        var adminUser = await userManager.FindByEmailAsync(adminEmail);
-        if (adminUser == null)
-        {
-            adminUser = new ApplicationUser
+            // Seed admin user
+            var adminEmail = "admin@medchain.com";
+            if (await userManager.FindByEmailAsync(adminEmail) == null)
             {
-                UserName = adminEmail,
-                Email = adminEmail,
-                FullName = "System Admin",
-                EmailConfirmed = true
-            };
+                var adminUser = new ApplicationUser
+                {
+                    UserName = adminEmail,
+                    Email = adminEmail,
+                    FullName = "System Admin",
+                    EmailConfirmed = true
+                };
 
-            var result = await userManager.CreateAsync(adminUser, "Admin@123");
-            if (result.Succeeded)
-            {
-                await userManager.AddToRoleAsync(adminUser, nameof(UserRoles.Admin));
+                var result = await userManager.CreateAsync(adminUser, "Admin@123");
+                if (result.Succeeded)
+                {
+                    await userManager.AddToRoleAsync(adminUser, nameof(UserRoles.Admin));
+                }
             }
         }
     }

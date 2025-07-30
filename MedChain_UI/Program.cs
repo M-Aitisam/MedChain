@@ -1,6 +1,7 @@
 using MedChain_BLL.Interfaces;
 using MedChain_BLL.Services;
 using MedChain_DAL.Interfaces;
+using MedChain_DAL.Data;
 using MedChain_DAL.Repositories;
 using MedChain_Models.Entities;
 using MedChain_UI.Areas.Identity;
@@ -19,14 +20,13 @@ var builder = WebApplication.CreateBuilder(args);
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ??
     throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
 
-// Configure DbContext
-// In Program.cs, ensure this exists BEFORE any services that depend on it:
+// Configure DbContext - moved to DAL project
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseSqlServer(connectionString));
 
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
-// Configure Identity with your ApplicationUser and IdentityRole
+// Configure Identity
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 {
     options.SignIn.RequireConfirmedAccount = false;
@@ -60,7 +60,7 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
-// Register services
+// Register services with proper namespaces
 builder.Services.AddScoped<IAuthRepository, AuthRepository>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 
@@ -68,7 +68,7 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddRazorPages();
 builder.Services.AddServerSideBlazor();
 
-// Configure AuthenticationStateProvider for Blazor
+// Configure AuthenticationStateProvider
 builder.Services.AddScoped<AuthenticationStateProvider, RevalidatingIdentityAuthenticationStateProvider<ApplicationUser>>();
 
 var app = builder.Build();
@@ -88,7 +88,6 @@ app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseRouting();
 
-// IMPORTANT: UseAuthentication before UseAuthorization
 app.UseAuthentication();
 app.UseAuthorization();
 
@@ -103,11 +102,10 @@ using (var scope = app.Services.CreateScope())
     try
     {
         var context = services.GetRequiredService<ApplicationDbContext>();
-        var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
-        var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
-
         await context.Database.MigrateAsync();
-        await SeedData.Initialize(services);
+
+        var seedData = new SeedData();
+        await seedData.Initialize(services);
     }
     catch (Exception ex)
     {
