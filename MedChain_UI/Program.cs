@@ -69,8 +69,8 @@ builder.Services.AddRazorPages();
 builder.Services.AddServerSideBlazor();
 
 // Configure AuthenticationStateProvider
-builder.Services.AddScoped<AuthenticationStateProvider, RevalidatingIdentityAuthenticationStateProvider<ApplicationUser>>();
-
+//builder.Services.AddScoped<AuthenticationStateProvider, RevalidatingIdentityAuthenticationStateProvider<ApplicationUser>>();
+builder.Services.AddScoped<AuthenticationStateProvider, CustomAuthStateProvider>();
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.

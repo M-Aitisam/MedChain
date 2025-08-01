@@ -44,18 +44,15 @@
         if (result.IsSuccess)
         {
             await protectedSessionStore.SetAsync("authToken", result.Token);
-            ((CustomAuthStateProvider)authenticationStateProvider).NotifyUserAuthentication(result.Token);
 
-            // Compare string roles directly
-            var redirectPath = result.Role switch
+            // Remove the cast or create a method that works with the base class
+            navigationManager.NavigateTo(result.Role switch
             {
                 "Admin" => "/admin",
                 "Doctor" => "/doctor",
                 "Patient" => "/patient",
                 _ => "/"
-            };
-
-            navigationManager.NavigateTo(redirectPath);
+            }, forceLoad: true);
         }
         else
         {
