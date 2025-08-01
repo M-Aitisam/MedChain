@@ -96,16 +96,15 @@ app.MapBlazorHub();
 app.MapFallbackToPage("/_Host");
 
 // Seed database
+// In Program.cs, after builder.Build()
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
     try
     {
         var context = services.GetRequiredService<ApplicationDbContext>();
-        await context.Database.MigrateAsync();
-
-        var seedData = new SeedData();
-        await seedData.Initialize(services);
+        // Only call SeedData - MigrateAsync() is already called inside SeedData.Initialize()
+        await SeedData.Initialize(services);
     }
     catch (Exception ex)
     {
@@ -113,5 +112,4 @@ using (var scope = app.Services.CreateScope())
         logger.LogError(ex, "An error occurred seeding the DB.");
     }
 }
-
 app.Run();

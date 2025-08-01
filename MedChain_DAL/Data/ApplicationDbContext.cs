@@ -1,5 +1,4 @@
-﻿// MedChain_DAL/Data/ApplicationDbContext.cs
-using MedChain_Models.Entities;
+﻿using MedChain_Models.Entities;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
@@ -14,60 +13,48 @@ namespace MedChain_DAL.Data
         {
         }
 
+        // Add your custom DbSets here if any
+        // public DbSet<YourEntity> YourEntities { get; set; }
+
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
 
-            // Seed roles
-            var adminRoleId = "1";
-            var doctorRoleId = "2";
-            var patientRoleId = "3";
+            // Configure schema
+            builder.HasDefaultSchema("dbo");
 
+            // Shorten the identity column length if needed
+            builder.Entity<ApplicationUser>(b => {
+                b.Property(u => u.Id).HasMaxLength(127);
+            });
+
+            builder.Entity<IdentityRole>(b => {
+                b.Property(r => r.Id).HasMaxLength(127);
+                b.Property(r => r.ConcurrencyStamp).HasMaxLength(127);
+            });
+
+            // Your role seeding (keep this)
             builder.Entity<IdentityRole>().HasData(
                 new IdentityRole
                 {
-                    Id = adminRoleId,
+                    Id = "1",
                     Name = "Admin",
-                    NormalizedName = "ADMIN"
+                    NormalizedName = "ADMIN",
+                    ConcurrencyStamp = Guid.NewGuid().ToString()
                 },
                 new IdentityRole
                 {
-                    Id = doctorRoleId,
+                    Id = "2",
                     Name = "Doctor",
-                    NormalizedName = "DOCTOR"
+                    NormalizedName = "DOCTOR",
+                    ConcurrencyStamp = Guid.NewGuid().ToString()
                 },
                 new IdentityRole
                 {
-                    Id = patientRoleId,
+                    Id = "3",
                     Name = "Patient",
-                    NormalizedName = "PATIENT"
-                }
-            );
-
-            // Seed admin user
-            var adminUserId = "1";
-            var hasher = new PasswordHasher<ApplicationUser>();
-            var adminUser = new ApplicationUser
-            {
-                Id = adminUserId,
-                UserName = "admin@medchain.com",
-                NormalizedUserName = "ADMIN@MEDCHAIN.COM",
-                Email = "admin@medchain.com",
-                NormalizedEmail = "ADMIN@MEDCHAIN.COM",
-                EmailConfirmed = true,
-                PasswordHash = hasher.HashPassword(null, "Admin@123"),
-                SecurityStamp = Guid.NewGuid().ToString(),
-                FullName = "System Admin"
-            };
-
-            builder.Entity<ApplicationUser>().HasData(adminUser);
-
-            // Assign admin role to admin user
-            builder.Entity<IdentityUserRole<string>>().HasData(
-                new IdentityUserRole<string>
-                {
-                    RoleId = adminRoleId,
-                    UserId = adminUserId
+                    NormalizedName = "PATIENT",
+                    ConcurrencyStamp = Guid.NewGuid().ToString()
                 }
             );
         }
