@@ -1,0 +1,39 @@
+﻿@page "/Medchain/logout"
+@using MedChain_Models.Entities
+@using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
+@using Microsoft.AspNetCore.Identity
+@inject NavigationManager NavigationManager
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject ProtectedSessionStorage ProtectedSessionStore
+@inject SignInManager<ApplicationUser> SignInManager
+
+@code {
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                // Clear Blazor auth
+                await ProtectedSessionStore.DeleteAsync("authToken");
+                if (AuthenticationStateProvider is CustomAuthStateProvider customProvider)
+                {
+                    await customProvider.NotifyUserLogoutAsync();
+                }
+
+                // Sign out from Identity
+                await SignInManager.SignOutAsync();
+
+                // Redirect to home
+                NavigationManager.NavigateTo("/", forceLoad: true);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Logout error: {ex.Message}");
+                NavigationManager.NavigateTo("/", forceLoad: true);
+            }
+        }
+    }
+}

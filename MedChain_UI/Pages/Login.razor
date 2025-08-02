@@ -1,13 +1,16 @@
 ﻿@page "/Medchain/login/"
 @using MedChain_BLL.DTOs
-@using MedChain_Models.Enums
 @using MedChain_BLL.Interfaces
+@using MedChain_Models.Entities
+@using Microsoft.AspNetCore.Components
 @using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
-@inject IAuthService authService
-@inject NavigationManager navigationManager
-@inject AuthenticationStateProvider authenticationStateProvider
-@inject ProtectedSessionStorage protectedSessionStore
+@using Microsoft.AspNetCore.Identity
+@inject IAuthService AuthService
+@inject NavigationManager NavigationManager
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject ProtectedSessionStorage ProtectedSessionStore
+@inject SignInManager<ApplicationUser> SignInManager
 
 <div class="login-container">
     <h2>Login</h2>
@@ -43,28 +46,43 @@
 </div>
 
 @code {
-    private LoginDTO loginModel = new LoginDTO();
+    private LoginDTO loginModel = new();
     private string? errorMessage;
+    private bool isProcessing = false;
 
     private async Task HandleLogin()
     {
-        errorMessage = null; // Clear previous error messages
+        if (isProcessing) return;
+        isProcessing = true;
+        errorMessage = null;
 
         try
         {
-            var result = await authService.Login(loginModel);
+            if (string.IsNullOrWhiteSpace(loginModel.Email) || string.IsNullOrWhiteSpace(loginModel.Password))
+            {
+                errorMessage = "Please enter both email and password";
+                isProcessing = false;
+                return;
+            }
+
+            var result = await AuthService.Login(loginModel);
 
             if (result.IsSuccess && !string.IsNullOrEmpty(result.Token))
             {
-                await protectedSessionStore.SetAsync("authToken", result.Token);
+                // Store token
+                await ProtectedSessionStore.SetAsync("authToken", result.Token);
 
-                // Update authentication state
-                ((CustomAuthStateProvider)authenticationStateProvider).NotifyUserAuthentication(result.Token);
+                // Notify authentication state change
+                if (AuthenticationStateProvider is CustomAuthStateProvider customProvider)
+                {
+                    await customProvider.NotifyUserAuthenticationAsync(result.Token);
+                }
 
-                navigationManager.NavigateTo(result.Role switch
+                // Navigate to appropriate page
+                NavigationManager.NavigateTo(result.Role switch
                 {
                     "Admin" => "/admin",
-                    "Doctor" => "/doctor",
+                    "Doctor" => "/doctordashboard",
                     "Patient" => "/patient",
                     _ => "/"
                 }, forceLoad: true);
@@ -74,10 +92,13 @@
                 errorMessage = result.Message ?? "Login failed. Please try again.";
             }
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            errorMessage = "An error occurred during login. Please try again.";
-            // Log the exception here if needed
+            errorMessage = $"Login error: {ex.Message}";
+        }
+        finally
+        {
+            isProcessing = false;
         }
     }
 }

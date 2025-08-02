@@ -16,17 +16,20 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+// ---------------------------------------------------
+// Configure Database
+// ---------------------------------------------------
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ??
     throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
 
-// Configure DbContext - moved to DAL project
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(connectionString));
 
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
-// Configure Identity
+// ---------------------------------------------------
+// Configure Identity (only once to avoid conflicts)
+// ---------------------------------------------------
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 {
     options.SignIn.RequireConfirmedAccount = false;
@@ -39,7 +42,9 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 .AddEntityFrameworkStores<ApplicationDbContext>()
 .AddDefaultTokenProviders();
 
+// ---------------------------------------------------
 // Configure JWT Authentication
+// ---------------------------------------------------
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -60,20 +65,30 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
-// Register services with proper namespaces
+// ---------------------------------------------------
+// Register Custom Services
+// ---------------------------------------------------
 builder.Services.AddScoped<IAuthRepository, AuthRepository>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 
-// Configure Blazor
+// ---------------------------------------------------
+// Blazor Services
+// ---------------------------------------------------
 builder.Services.AddRazorPages();
 builder.Services.AddServerSideBlazor();
 
-// Configure AuthenticationStateProvider
-//builder.Services.AddScoped<AuthenticationStateProvider, RevalidatingIdentityAuthenticationStateProvider<ApplicationUser>>();
+// Use your custom AuthenticationStateProvider
 builder.Services.AddScoped<AuthenticationStateProvider, CustomAuthStateProvider>();
+builder.Services.AddHttpContextAccessor();
+
+// ---------------------------------------------------
+// Build the App
+// ---------------------------------------------------
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
+// ---------------------------------------------------
+// Middleware Configuration
+// ---------------------------------------------------
 if (app.Environment.IsDevelopment())
 {
     app.UseMigrationsEndPoint();
@@ -95,9 +110,9 @@ app.MapControllers();
 app.MapBlazorHub();
 app.MapFallbackToPage("/_Host");
 
-// Seed database
-// In Program.cs, after builder.Build()
-// In your Program.cs, just before app.Run()
+// ---------------------------------------------------
+// Seed the Database
+// ---------------------------------------------------
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
