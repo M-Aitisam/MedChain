@@ -1,10 +1,12 @@
 ﻿using MedChain_Models.Entities;
 using MedChain_Models.Enums;
+using Microsoft.EntityFrameworkCore.Storage;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Data;
 
 namespace MedChain_DAL.Interfaces
 {
@@ -16,5 +18,7 @@ namespace MedChain_DAL.Interfaces
         Task<bool> CheckPassword(ApplicationUser user, string password);
         Task<IList<string>> GetUserRoles(ApplicationUser user);
         Task<bool> AddUserToRole(ApplicationUser user, UserRoles role);
+        Task<IDbContextTransaction> BeginTransactionAsync();
+        Task<IDbContextTransaction> BeginTransactionAsync(IsolationLevel isolationLevel);
     }
 }

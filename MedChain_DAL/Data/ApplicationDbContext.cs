@@ -20,42 +20,20 @@ namespace MedChain_DAL.Data
         {
             base.OnModelCreating(builder);
 
-            // Configure schema
-            builder.HasDefaultSchema("dbo");
+            // Ensure proper table names
+            builder.Entity<ApplicationUser>().ToTable("AspNetUsers", "dbo");
+            builder.Entity<IdentityRole>().ToTable("AspNetRoles", "dbo");
+            builder.Entity<IdentityUserRole<string>>().ToTable("AspNetUserRoles");
+            builder.Entity<IdentityUserClaim<string>>().ToTable("AspNetUserClaims");
+            builder.Entity<IdentityUserLogin<string>>().ToTable("AspNetUserLogins");
+            builder.Entity<IdentityUserToken<string>>().ToTable("AspNetUserTokens");
+            builder.Entity<IdentityRoleClaim<string>>().ToTable("AspNetRoleClaims");
 
-            // Shorten the identity column length if needed
-            builder.Entity<ApplicationUser>(b => {
-                b.Property(u => u.Id).HasMaxLength(127);
-            });
-
-            builder.Entity<IdentityRole>(b => {
-                b.Property(r => r.Id).HasMaxLength(127);
-                b.Property(r => r.ConcurrencyStamp).HasMaxLength(127);
-            });
-
-            // Your role seeding (keep this)
+            // Your existing role seeding
             builder.Entity<IdentityRole>().HasData(
-                new IdentityRole
-                {
-                    Id = "1",
-                    Name = "Admin",
-                    NormalizedName = "ADMIN",
-                    ConcurrencyStamp = Guid.NewGuid().ToString()
-                },
-                new IdentityRole
-                {
-                    Id = "2",
-                    Name = "Doctor",
-                    NormalizedName = "DOCTOR",
-                    ConcurrencyStamp = Guid.NewGuid().ToString()
-                },
-                new IdentityRole
-                {
-                    Id = "3",
-                    Name = "Patient",
-                    NormalizedName = "PATIENT",
-                    ConcurrencyStamp = Guid.NewGuid().ToString()
-                }
+                new IdentityRole { Id = "1", Name = "Admin", NormalizedName = "ADMIN" },
+                new IdentityRole { Id = "2", Name = "Doctor", NormalizedName = "DOCTOR" },
+                new IdentityRole { Id = "3", Name = "Patient", NormalizedName = "PATIENT" }
             );
         }
     }

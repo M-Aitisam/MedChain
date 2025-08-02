@@ -11,9 +11,10 @@ namespace MedChain_DAL.Data
         public ApplicationDbContext CreateDbContext(string[] args)
         {
             // Build configuration from appsettings.json
+            // Build configuration from the UI project's appsettings.json
             IConfiguration configuration = new ConfigurationBuilder()
-                .SetBasePath(Directory.GetCurrentDirectory())
-                .AddJsonFile("appsettings.json", optional: false)
+                .SetBasePath(Path.Combine(Directory.GetCurrentDirectory(), "../MedChain_UI"))
+                .AddJsonFile("appsettings.json")
                 .Build();
 
             // Get connection string

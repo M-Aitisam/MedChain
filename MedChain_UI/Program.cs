@@ -97,19 +97,19 @@ app.MapFallbackToPage("/_Host");
 
 // Seed database
 // In Program.cs, after builder.Build()
+// In your Program.cs, just before app.Run()
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
     try
     {
-        var context = services.GetRequiredService<ApplicationDbContext>();
-        // Only call SeedData - MigrateAsync() is already called inside SeedData.Initialize()
         await SeedData.Initialize(services);
     }
     catch (Exception ex)
     {
         var logger = services.GetRequiredService<ILogger<Program>>();
-        logger.LogError(ex, "An error occurred seeding the DB.");
+        logger.LogError(ex, "An error occurred during database initialization");
     }
 }
+
 app.Run();

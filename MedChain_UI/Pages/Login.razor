@@ -1,4 +1,4 @@
-﻿@page "/login"
+﻿@page "/Medchain/login/"
 @using MedChain_BLL.DTOs
 @using MedChain_Models.Enums
 @using MedChain_BLL.Interfaces
@@ -9,29 +9,38 @@
 @inject AuthenticationStateProvider authenticationStateProvider
 @inject ProtectedSessionStorage protectedSessionStore
 
-<EditForm Model="@loginModel" OnValidSubmit="@HandleLogin">
-    <DataAnnotationsValidator />
-    <ValidationSummary />
+<div class="login-container">
+    <h2>Login</h2>
 
-    <div class="form-group">
-        <label for="email">Email</label>
-        <InputText id="email" @bind-Value="loginModel.Email" class="form-control" />
-        <ValidationMessage For="@(() => loginModel.Email)" />
+    <EditForm Model="@loginModel" OnValidSubmit="@HandleLogin">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <div class="form-group">
+            <label for="email">Email</label>
+            <InputText id="email" @bind-Value="loginModel.Email" class="form-control" />
+            <ValidationMessage For="@(() => loginModel.Email)" />
+        </div>
+
+        <div class="form-group">
+            <label for="password">Password</label>
+            <InputText id="password" type="password" @bind-Value="loginModel.Password" class="form-control" />
+            <ValidationMessage For="@(() => loginModel.Password)" />
+        </div>
+
+        <button type="submit" class="btn btn-primary">Login</button>
+    </EditForm>
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger mt-3">@errorMessage</div>
+    }
+
+    <div class="mt-3">
+        <span>Don't have an account? </span>
+        <a href="/Medchain/Register/">Register here</a>
     </div>
-
-    <div class="form-group">
-        <label for="password">Password</label>
-        <InputText id="password" type="password" @bind-Value="loginModel.Password" class="form-control" />
-        <ValidationMessage For="@(() => loginModel.Password)" />
-    </div>
-
-    <button type="submit" class="btn btn-primary">Login</button>
-</EditForm>
-
-@if (!string.IsNullOrEmpty(errorMessage))
-{
-    <div class="alert alert-danger">@errorMessage</div>
-}
+</div>
 
 @code {
     private LoginDTO loginModel = new LoginDTO();
@@ -39,24 +48,36 @@
 
     private async Task HandleLogin()
     {
-        var result = await authService.Login(loginModel);
+        errorMessage = null; // Clear previous error messages
 
-        if (result.IsSuccess)
+        try
         {
-            await protectedSessionStore.SetAsync("authToken", result.Token);
+            var result = await authService.Login(loginModel);
 
-            // Remove the cast or create a method that works with the base class
-            navigationManager.NavigateTo(result.Role switch
+            if (result.IsSuccess && !string.IsNullOrEmpty(result.Token))
             {
-                "Admin" => "/admin",
-                "Doctor" => "/doctor",
-                "Patient" => "/patient",
-                _ => "/"
-            }, forceLoad: true);
+                await protectedSessionStore.SetAsync("authToken", result.Token);
+
+                // Update authentication state
+                ((CustomAuthStateProvider)authenticationStateProvider).NotifyUserAuthentication(result.Token);
+
+                navigationManager.NavigateTo(result.Role switch
+                {
+                    "Admin" => "/admin",
+                    "Doctor" => "/doctor",
+                    "Patient" => "/patient",
+                    _ => "/"
+                }, forceLoad: true);
+            }
+            else
+            {
+                errorMessage = result.Message ?? "Login failed. Please try again.";
+            }
         }
-        else
+        catch (Exception)
         {
-            errorMessage = result.Message;
+            errorMessage = "An error occurred during login. Please try again.";
+            // Log the exception here if needed
         }
     }
 }
