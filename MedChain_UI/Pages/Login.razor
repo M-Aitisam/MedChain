@@ -11,6 +11,7 @@
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject ProtectedSessionStorage ProtectedSessionStore
 @inject SignInManager<ApplicationUser> SignInManager
+@inject ILogger<Login> _logger
 
 <div class="login-container">
     <h2>Login</h2>
@@ -55,50 +56,81 @@
         if (isProcessing) return;
         isProcessing = true;
         errorMessage = null;
+        AuthResponseDTO? result = null; // Declare result outside try block
 
         try
         {
-            if (string.IsNullOrWhiteSpace(loginModel.Email) || string.IsNullOrWhiteSpace(loginModel.Password))
+            // Validate input
+            if (string.IsNullOrWhiteSpace(loginModel.Email) ||
+                string.IsNullOrWhiteSpace(loginModel.Password))
             {
                 errorMessage = "Please enter both email and password";
                 isProcessing = false;
                 return;
             }
 
-            var result = await AuthService.Login(loginModel);
+            _logger.LogInformation("Login attempt for email: {Email}", loginModel.Email);
+
+            // Call authentication service
+            result = await AuthService.Login(loginModel);
 
             if (result.IsSuccess && !string.IsNullOrEmpty(result.Token))
             {
-                // Store token
-                await ProtectedSessionStore.SetAsync("authToken", result.Token);
+                _logger.LogDebug("Login successful, token received. Role: {Role}", result.Role);
 
-                // Notify authentication state change
                 if (AuthenticationStateProvider is CustomAuthStateProvider customProvider)
                 {
-                    await customProvider.NotifyUserAuthenticationAsync(result.Token);
+                    try
+                    {
+                        await customProvider.NotifyUserAuthenticationAsync(
+                            result.Token,
+                            loginModel.Email);
+
+                        // Wait for UI state to update before navigation
+                        await Task.Delay(500);
+                        _logger.LogDebug("Authentication state updated successfully");
+                    }
+                    catch (Exception authEx)
+                    {
+                        _logger.LogError(authEx, "Failed to notify authentication state change");
+                        errorMessage = "Authentication succeeded but state update failed";
+                        return;
+                    }
                 }
 
-                // Navigate to appropriate page
-                NavigationManager.NavigateTo(result.Role switch
+                // Navigate based on role
+                var targetPage = result.Role switch
                 {
                     "Admin" => "/admin",
                     "Doctor" => "/doctordashboard",
                     "Patient" => "/patient",
                     _ => "/"
-                }, forceLoad: true);
+                };
+
+                _logger.LogInformation("Navigating to: {TargetPage}", targetPage);
+                NavigationManager.NavigateTo(targetPage, forceLoad: true);
             }
             else
             {
                 errorMessage = result.Message ?? "Login failed. Please try again.";
+                _logger.LogWarning("Login failed for {Email}: {Message}",
+                    loginModel.Email, errorMessage);
             }
         }
         catch (Exception ex)
         {
-            errorMessage = $"Login error: {ex.Message}";
+            errorMessage = "An unexpected error occurred during login";
+            _logger.LogError(ex, "Login error for {Email}. Token present: {HasToken}",
+                loginModel.Email,
+                result != null && !string.IsNullOrEmpty(result.Token));
         }
         finally
         {
             isProcessing = false;
+            if (!string.IsNullOrEmpty(errorMessage))
+            {
+                _logger.LogDebug("Login flow completed with error: {ErrorMessage}", errorMessage);
+            }
         }
     }
 }

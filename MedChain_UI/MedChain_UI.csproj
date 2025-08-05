@@ -23,4 +23,8 @@
     <ProjectReference Include="..\MedChain_Models\MedChain_Models.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Areas\Identity\Pages\Shared\" />
+  </ItemGroup>
+
 </Project>

@@ -16,17 +16,10 @@
         {
             try
             {
-                // Clear Blazor auth
-                await ProtectedSessionStore.DeleteAsync("authToken");
                 if (AuthenticationStateProvider is CustomAuthStateProvider customProvider)
                 {
                     await customProvider.NotifyUserLogoutAsync();
                 }
-
-                // Sign out from Identity
-                await SignInManager.SignOutAsync();
-
-                // Redirect to home
                 NavigationManager.NavigateTo("/", forceLoad: true);
             }
             catch (Exception ex)

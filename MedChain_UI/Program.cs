@@ -1,13 +1,14 @@
 using MedChain_BLL.Interfaces;
 using MedChain_BLL.Services;
-using MedChain_DAL.Interfaces;
 using MedChain_DAL.Data;
+using MedChain_DAL.Interfaces;
 using MedChain_DAL.Repositories;
 using MedChain_Models.Entities;
 using MedChain_UI.Areas.Identity;
 using MedChain_UI.Data;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI;
 using Microsoft.EntityFrameworkCore;
@@ -28,7 +29,7 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
 // ---------------------------------------------------
-// Configure Identity (only once to avoid conflicts)
+// Configure Identity
 // ---------------------------------------------------
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 {
@@ -43,26 +44,14 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
 .AddDefaultTokenProviders();
 
 // ---------------------------------------------------
-// Configure JWT Authentication
+// Configure Authentication
 // ---------------------------------------------------
+// Remove JWT Bearer authentication since we're using Blazor Server with Identity
+// and our custom auth state provider
 builder.Services.AddAuthentication(options =>
 {
-    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-    options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
-})
-.AddJwtBearer(options =>
-{
-    options.TokenValidationParameters = new TokenValidationParameters
-    {
-        ValidateIssuerSigningKey = true,
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8
-            .GetBytes(builder.Configuration["Jwt:Key"])),
-        ValidateIssuer = false,
-        ValidateAudience = false,
-        ValidateLifetime = true,
-        ClockSkew = TimeSpan.Zero
-    };
+    options.DefaultScheme = IdentityConstants.ApplicationScheme;
+    options.DefaultSignInScheme = IdentityConstants.ExternalScheme;
 });
 
 // ---------------------------------------------------
@@ -77,9 +66,11 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddRazorPages();
 builder.Services.AddServerSideBlazor();
 
-// Use your custom AuthenticationStateProvider
+// Custom AuthenticationStateProvider
 builder.Services.AddScoped<AuthenticationStateProvider, CustomAuthStateProvider>();
+builder.Services.AddScoped<ProtectedSessionStorage>();
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddAuthorizationCore();
 
 // ---------------------------------------------------
 // Build the App
@@ -103,6 +94,7 @@ app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseRouting();
 
+// Authentication and Authorization
 app.UseAuthentication();
 app.UseAuthorization();
 

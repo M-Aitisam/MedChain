@@ -3,19 +3,24 @@ using Microsoft.AspNetCore.Components.Authorization;
 using System.IdentityModel.Tokens.Jwt;
 using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage;
 using Microsoft.Extensions.Logging;
+using Microsoft.AspNetCore.Identity;
+using MedChain_Models.Entities;
 
 public sealed class CustomAuthStateProvider : AuthenticationStateProvider
 {
     private readonly ProtectedSessionStorage _sessionStorage;
     private readonly ILogger<CustomAuthStateProvider> _logger;
     private readonly JwtSecurityTokenHandler _tokenHandler = new();
+    private readonly UserManager<ApplicationUser> _userManager;
 
     public CustomAuthStateProvider(
         ProtectedSessionStorage sessionStorage,
-        ILogger<CustomAuthStateProvider> logger)
+        ILogger<CustomAuthStateProvider> logger,
+        UserManager<ApplicationUser> userManager)
     {
-        _sessionStorage = sessionStorage ?? throw new ArgumentNullException(nameof(sessionStorage));
-        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _sessionStorage = sessionStorage;
+        _logger = logger;
+        _userManager = userManager;
     }
 
     public override async Task<AuthenticationState> GetAuthenticationStateAsync()
@@ -23,115 +28,168 @@ public sealed class CustomAuthStateProvider : AuthenticationStateProvider
         try
         {
             // Return anonymous state during prerendering
-            if (OperatingSystem.IsBrowser() == false)
+            if (!OperatingSystem.IsBrowser())
             {
-                return CreateAnonymousState();
+                return AnonymousState();
             }
 
+            // Check session storage for token
             var tokenResult = await _sessionStorage.GetAsync<string>("authToken");
             if (!tokenResult.Success || string.IsNullOrWhiteSpace(tokenResult.Value))
             {
-                _logger.LogDebug("No authentication token found in storage");
-                return CreateAnonymousState();
+                _logger.LogDebug("No authentication token found in session storage");
+                return AnonymousState();
             }
 
-            var validationResult = await ValidateAndParseToken(tokenResult.Value);
-            if (!validationResult.isValid || validationResult.claims is null)
+            // Validate token
+            var (isValid, claims) = await ValidateTokenAsync(tokenResult.Value);
+            if (!isValid || claims == null)
             {
                 _logger.LogWarning("Invalid token found - clearing storage");
-                await _sessionStorage.DeleteAsync("authToken");
-                return CreateAnonymousState();
+                await ClearAuthDataAsync();
+                return AnonymousState();
             }
 
-            var principal = CreatePrincipal(validationResult.claims);
-            _logger.LogInformation("Authenticated user: {UserName}", principal.Identity?.Name);
+            // Get email claim
+            var emailClaim = claims.FirstOrDefault(c => c.Type == ClaimTypes.Email);
+            if (emailClaim == null)
+            {
+                _logger.LogWarning("Token doesn't contain email claim");
+                return AnonymousState();
+            }
+
+            // Create principal directly from token claims
+            var identity = new ClaimsIdentity(claims, "jwt");
+            var principal = new ClaimsPrincipal(identity);
+
+            _logger.LogDebug("Authenticated user: {Email}", emailClaim.Value);
             return new AuthenticationState(principal);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to get authentication state");
-            return CreateAnonymousState();
+            _logger.LogError(ex, "Error getting authentication state");
+            return AnonymousState();
         }
     }
-
-    public async Task NotifyUserAuthenticationAsync(string token)
+    public async Task NotifyUserAuthenticationAsync(string token, string email)
     {
         if (string.IsNullOrWhiteSpace(token))
-        {
-            _logger.LogWarning("Attempted to notify authentication with empty token");
-            return;
-        }
+            throw new ArgumentNullException(nameof(token), "Token cannot be null or empty");
+        if (string.IsNullOrWhiteSpace(email))
+            throw new ArgumentNullException(nameof(email), "Email cannot be null or empty");
 
         try
         {
-            var validationResult = await ValidateAndParseToken(token);
-            if (!validationResult.isValid || validationResult.claims is null)
+            _logger.LogDebug("Starting authentication notification for {Email}", email);
+
+            // 1. Store token in session storage
+            await _sessionStorage.SetAsync("authToken", token);
+            _logger.LogDebug("Token stored in session storage");
+
+            // 2. Validate token and get claims
+            var (isValid, claims) = await ValidateTokenAsync(token);
+            if (!isValid || claims == null)
             {
-                _logger.LogWarning("Invalid token provided for authentication");
-                return;
+                _logger.LogError("Invalid token provided");
+                throw new InvalidOperationException("Invalid token provided");
             }
 
-            await _sessionStorage.SetAsync("authToken", token);
-            var principal = CreatePrincipal(validationResult.claims);
+            // 3. Find email claim using multiple possible claim types
+            var tokenEmail = claims.FirstOrDefault(c =>
+                c.Type == ClaimTypes.Email ||
+                c.Type == JwtRegisteredClaimNames.Email)?.Value;
+
+            if (string.IsNullOrEmpty(tokenEmail))
+            {
+                _logger.LogError("Token missing email claim. Available claims: {@Claims}",
+                    claims.Select(c => c.Type));
+                throw new InvalidOperationException("Token doesn't contain email claim");
+            }
+
+            _logger.LogDebug("Token email: {TokenEmail}, Login email: {LoginEmail}",
+                tokenEmail, email);
+
+            // 4. Verify user exists in database
+            var user = await _userManager.FindByEmailAsync(email);
+            if (user == null)
+            {
+                _logger.LogError("User not found in database: {Email}", email);
+                throw new InvalidOperationException($"User with email {email} not found");
+            }
+
+            // 5. Create identity with all claims from token
+            var identity = new ClaimsIdentity(claims, "jwt");
+            var principal = new ClaimsPrincipal(identity);
+
+            // 6. Notify state change
             NotifyAuthenticationStateChanged(Task.FromResult(new AuthenticationState(principal)));
-            _logger.LogInformation("Successfully notified user authentication");
+            _logger.LogInformation("Authentication state changed notified for {Email}", email);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to notify user authentication");
+            _logger.LogError(ex, "Authentication notification failed for {Email}", email);
+            await ClearAuthDataAsync();
+
+            // Wrap the exception to provide more context
+            throw new ApplicationException($"Failed to authenticate user {email}", ex);
         }
     }
-
     public async Task NotifyUserLogoutAsync()
     {
         try
         {
-            await _sessionStorage.DeleteAsync("authToken");
-            NotifyAuthenticationStateChanged(Task.FromResult(CreateAnonymousState()));
-            _logger.LogInformation("Successfully notified user logout");
+            await ClearAuthDataAsync();
+            NotifyAuthenticationStateChanged(Task.FromResult(AnonymousState()));
+            _logger.LogInformation("User logged out successfully");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to notify user logout");
+            _logger.LogError(ex, "Error notifying user logout");
+            throw;
         }
     }
 
-    private async Task<(bool isValid, IEnumerable<Claim>? claims)> ValidateAndParseToken(string token)
+    private async Task<(bool isValid, IEnumerable<Claim>? claims)> ValidateTokenAsync(string token)
     {
         try
         {
             if (string.IsNullOrWhiteSpace(token))
             {
                 _logger.LogDebug("Empty token provided for validation");
-                return (false, null);
+                return (false, default);
             }
 
-            if (!_tokenHandler.CanReadToken(token))
+            // Offload token validation to a background thread since it's CPU-bound work
+            return await Task.Run(() =>
             {
-                _logger.LogWarning("Token cannot be read by JWT handler");
-                return (false, null);
-            }
+                if (!_tokenHandler.CanReadToken(token))
+                {
+                    _logger.LogWarning("Token cannot be read by JWT handler");
+                    return (false, default);
+                }
 
-            var jwtToken = _tokenHandler.ReadJwtToken(token);
+                var jwtToken = _tokenHandler.ReadJwtToken(token);
+                _logger.LogDebug("Token contains claims: {@Claims}", jwtToken.Claims.Select(c => new { c.Type, c.Value }));
 
-            if (jwtToken.ValidTo < DateTime.UtcNow)
-            {
-                _logger.LogWarning("Token has expired (ValidTo: {Expiration})", jwtToken.ValidTo);
-                return (false, null);
-            }
+                if (jwtToken.ValidTo < DateTime.UtcNow)
+                {
+                    _logger.LogWarning("Token has expired (ValidTo: {Expiration})", jwtToken.ValidTo);
+                    return (false, default);
+                }
 
-            return (true, jwtToken.Claims);
+                return (true, jwtToken.Claims);
+            });
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Token validation failed");
-            return (false, null);
+            return (false, default);
         }
     }
 
-    private static ClaimsPrincipal CreatePrincipal(IEnumerable<Claim> claims)
-        => new(new ClaimsIdentity(claims, "jwt"));
+    private async Task ClearAuthDataAsync() =>
+        await _sessionStorage.DeleteAsync("authToken");
 
-    private static AuthenticationState CreateAnonymousState()
-        => new(new ClaimsPrincipal(new ClaimsIdentity()));
+    private static AuthenticationState AnonymousState() =>
+        new(new ClaimsPrincipal(new ClaimsIdentity()));
 }

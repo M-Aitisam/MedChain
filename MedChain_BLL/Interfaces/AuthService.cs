@@ -13,6 +13,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 
+
 namespace MedChain_BLL.Services
 {
     public class AuthService : IAuthService
@@ -175,6 +176,8 @@ namespace MedChain_BLL.Services
 
             var claims = new List<Claim>
             {
+                new Claim(JwtRegisteredClaimNames.Sub, user.Id),
+                new Claim(JwtRegisteredClaimNames.Email, user.Email ?? string.Empty), // Standard email claim
                 new Claim(ClaimTypes.NameIdentifier, user.Id),
                 new Claim(ClaimTypes.Name, user.UserName ?? string.Empty),
                 new Claim(ClaimTypes.Email, user.Email ?? string.Empty),
@@ -185,6 +188,7 @@ namespace MedChain_BLL.Services
             foreach (var role in roles)
             {
                 claims.Add(new Claim(ClaimTypes.Role, role ?? string.Empty));
+                claims.Add(new Claim("role", role ?? string.Empty)); // Additional role claim
             }
 
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));

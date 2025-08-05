@@ -1,12 +1,41 @@
-﻿<AuthorizeView>
+﻿@implements IDisposable
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager NavigationManager
+
+<AuthorizeView>
     <Authorized>
-        <a href="Identity/Account/Manage">Hello, @context.User.Identity?.Name!</a>
-        <form method="post" action="Identity/Account/LogOut">
-            <button type="submit" class="nav-link btn btn-link">Log out</button>
-        </form>
+        <a class="nav-link">Hello, @context.User.Identity?.Name!</a>
+        <button @onclick="Logout" class="nav-link btn btn-link">Logout</button>
     </Authorized>
     <NotAuthorized>
-        <a href="/Medchain/Register/">Register</a>
-        <a href="/Medchain/Login/">Log in</a>
+        <a href="/Medchain/Register/" class="nav-link">Register</a>
+        <a href="/Medchain/Login/" class="nav-link">Login</a>
     </NotAuthorized>
 </AuthorizeView>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        AuthStateProvider.AuthenticationStateChanged += AuthStateChanged;
+        await AuthStateProvider.GetAuthenticationStateAsync();
+    }
+
+    private async void AuthStateChanged(Task<AuthenticationState> task)
+    {
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task Logout()
+    {
+        if (AuthStateProvider is CustomAuthStateProvider customProvider)
+        {
+            await customProvider.NotifyUserLogoutAsync();
+        }
+        NavigationManager.NavigateTo("/", forceLoad: true);
+    }
+
+    public void Dispose()
+    {
+        AuthStateProvider.AuthenticationStateChanged -= AuthStateChanged;
+    }
+}
